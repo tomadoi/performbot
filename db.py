@@ -4,14 +4,14 @@ from sqlalchemy.orm import sessionmaker
 
 import os
 
-engine = create_engine(os.environ.get('DATABASE_URL'), echo=True)
+engine = create_engine(os.environ.get('DATABASE_URL'), echo=True, pool_recycle=True)
 
 
 Base = declarative_base()
 
 
 class Deadline(Base):
-    __tablename__ = 'deadlines'
+    __tablename__ = 'deadlines_copy'
 
     id = Column(Integer, primary_key=True)
     date = Column(Date)
