@@ -207,7 +207,7 @@ def show_help(message):
         - To add conference to the database: conference is on date \r\
         - To remove conference from database: forget about conference \r\
         - To add an abstract deadline: abstract for conference due by date \r\
-        - To record a deadline change: conference changed to date \r\
+        - To record a deadline change: conference moved to date \r\
         - To check current deadlines: deadlines? \r\
         \r\
         *Note*: I am always listening for the word deadlines but you have to tag me for adding/removing. \r\
