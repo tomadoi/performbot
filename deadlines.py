@@ -1,13 +1,21 @@
 from slackbot.bot import listen_to, respond_to
-import re
-import dateutil.parser
-import dateparser
+
 import datetime
 import json
-from db import Deadline
+import re
+import sys, traceback
+from itertools import chain
+
+import BeautifulSoup as bs4
+import dateparser
+import dateutil.parser
+import requests
+
 import db
+from db import Deadline
 
 #session = db.Session()
+_cfp_url_cache, _true_cfp_url_cache = dict(), dict()
 
 
 def query_for_item(item, session):
@@ -32,6 +40,62 @@ def parse_and_verify_date(datestr, strict=False):
             return False, "Deadline already passed"
 
     return True, date
+
+
+def get_cfp_from_wikicfp(conf_wikicfp_url):
+    global _true_cfp_url_cache
+    if conf_wikicfp_url in _true_cfp_url_cache:
+        return _true_cfp_url_cache[conf_wikicfp_url]
+    resp = requests.get(conf_wikicfp_url)
+    soup = bs4.BeautifulSoup(resp.text)
+    rows = soup.findAll(
+        'div', {'class': 'contsec'})[0].findAll('td', {'align': 'center'})
+    return [r for r in rows[:5] if "Link:" in r.text][0].a['href']
+
+
+def get_conf_wikicfp_url(conference_name, try_get_true_cfp=False):
+    global _cfp_url_cache
+    if conference_name in _cfp_url_cache:
+        return _cfp_url_cache[conference_name]
+
+    WIKICFP_URL = "http://wikicfp.com"
+    resp = requests.get(
+        WIKICFP_URL + "/cfp/servlet/tool.search?q={conference_name}&year=t".format(
+            conference_name=conference_name.replace(' ', '+')))
+    soup = bs4.BeautifulSoup(resp.text)
+    rows = soup.findAll(
+        'div', {'class': 'contsec'})[0].findAll(
+        'td', {'align': 'left'})[0].findAll('tr')
+    headers = rows[0]
+    # Make sure the page we got was valid
+    assert map(unicode.strip, map(bs4.Tag.getText, headers.contents)) == ['Event', 'When', 'Where', 'Deadline']
+    links = []
+    for row_num in range(1, len(rows), 2):
+        try:
+            conf_info = list(chain(rows[row_num].findAll('td'),
+                                   rows[row_num + 1].findAll('td')))
+            if conference_name.lower() not in conf_info[0].text.lower():
+                continue
+            shortname, name, dates, location, deadlines = tuple(
+                t.text for t in conf_info)
+            conf_wikicfp_url = WIKICFP_URL + conf_info[0].a['href']
+            links.append(conf_wikicfp_url)
+        except:
+            ##traceback.print_exc()
+            ##sys.stderr.write("Row %d doesn't contain a conference entry.\n" % (row_num,))
+            pass
+    # There should only be one matching link; if there are multiple, the query
+    # was not specific enough, and if there is none, the CFP isn't on WikiCFP
+    assert len(links) == 1
+    _cfp_url_cache[conference_name] = links[0]
+
+    # Optionally, try to get the conference's CFP URL, not just the WikiCFP page
+    if try_get_true_cfp:
+        try:
+            return get_cfp_from_wikicfp(links[0])
+        except:
+            pass
+    return links[0]
 
 
 @respond_to(r'^((?!abstract).*\S(?<!is))(\s+is)?\s+((on|in)\s+\S.*)', re.IGNORECASE)
@@ -142,23 +206,31 @@ def list_deadlines(message):
             if days < 0:
                 continue
             attach = {"mrkdwn_in": ["text"]}
+            try:
+                deadline_text = '<{cfp_url}|{conf_name}>'.format(
+                    cfp_url=get_conf_wikicfp_url(deadline.item),
+                    conf_name=deadline.item)
+            except:
+                deadline_text = deadline.item
             if days > 1:
                 abstract_message = ""
                 if deadline.abstract_date != None:
                     abstract_days = (deadline.abstract_date - datetime.date.today()).days
-                    if abstract_days == 0:
+                    if abstract_days < 0:
+                        abstract_message = ""
+                    elif abstract_days == 0:
                         abstract_message = " (*abstract due TODAY!*)"
                     elif abstract_days == 1:
                         abstract_message = " (abstract due tomorrow)"
                     else:
                         abstract_message = " (abstract due in {} days)".format(
                             abstract_days)
-                attach["text"] = "{} days until {}{}".format(days, deadline.item,
+                attach["text"] = "{} days until {}{}".format(days, deadline_text,
                                                              abstract_message)
             elif days == 1:
-                attach["text"] = "*{} tomorrow!*".format(deadline.item)
+                attach["text"] = "*{} tomorrow!*".format(deadline_text)
             else:
-                attach["text"] = "*{} TODAY!*".format(deadline.item)
+                attach["text"] = "*{} TODAY!*".format(deadline_text)
                 attach["color"] = "#ff0000"
             if days < 7 and days > 0:
                 attach["color"] = "#ffff00"
