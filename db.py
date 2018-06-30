@@ -19,4 +19,12 @@ class Deadline(Base):
     old_date = Column(Date, nullable=True)
 
 
+class ResponseDeadline(Base):
+    __tablename__ = 'response_deadlines_perform'
+    id = Column(Integer, primary_key=True)
+    item = Column(Text, nullable=False)
+    early_response_date = Column(Date, nullable=True)
+    notification_date = Column(Date, nullable=True)
+
+
 Session = sessionmaker(bind=engine)
