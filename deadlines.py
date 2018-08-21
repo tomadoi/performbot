@@ -61,7 +61,7 @@ def get_conf_wikicfp_url(conference_name, try_get_true_cfp=False):
 
     WIKICFP_URL = "http://wikicfp.com"
     resp = requests.get(
-        WIKICFP_URL + "/cfp/servlet/tool.search?q={conference_name}&year=t".format(
+        WIKICFP_URL + "/cfp/servlet/tool.search?q={conference_name}&year=a".format(
             conference_name=conference_name.replace(' ', '+')))
     soup = bs4.BeautifulSoup(resp.text)
     rows = soup.findAll(
