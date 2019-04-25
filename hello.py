@@ -3,4 +3,4 @@ import re
 
 @respond_to("Hello", re.IGNORECASE)
 def hello(message):
-    message.reply("Hello, {}!".format(message.user["profile"]["first_name"]))
+    message.reply("Hello, {}!".format(message.user["profile"]["display_name"]))

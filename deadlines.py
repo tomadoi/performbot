@@ -7,7 +7,10 @@ import re
 import sys, traceback
 from itertools import chain
 
-import BeautifulSoup as bs4
+try:
+    import bs4
+except:
+    import BeautifulSoup as bs4
 import dateparser
 import dateutil.parser
 import requests

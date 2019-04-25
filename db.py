@@ -28,3 +28,9 @@ class ResponseDeadline(Base):
 
 
 Session = sessionmaker(bind=engine)
+
+
+if __name__ == '__main__':
+    # Create the table for the first time
+    Deadline.__table__.create(engine)
+    ResponseDeadline.__table__.create(engine)
